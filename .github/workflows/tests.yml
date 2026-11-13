@@ -1,0 +1,27 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: payments
+          POSTGRES_PASSWORD: payments
+          POSTGRES_DB: payments_test
+        ports: ["55432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U payments -d payments_test"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      API_KEY: local-demo-change-me
+      DATABASE_URL: postgresql+asyncpg://payments:payments@localhost:55432/payments_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run ruff check app migrations tests examples
+      - run: uv run alembic upgrade head
+      - run: uv run alembic check
+      - run: uv run pytest -q
